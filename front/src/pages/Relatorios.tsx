@@ -85,6 +85,9 @@ export function Relatorios() {
     () => new Map((items.data ?? []).map((item) => [item.id, item.nome])),
     [items.data],
   )
+  const reportClients = report.data?.clientes ?? []
+  const reportItems = report.data?.itens ?? []
+  const recentSales = sales.data?.content ?? []
   const monthly = useMemo(() => {
     const totals = Array.from({ length: 12 }, () => 0)
     for (const item of yearDashboard.data?.evolucaoFaturamento ?? []) {
@@ -117,7 +120,7 @@ export function Relatorios() {
         },
         { SERVICO: 0, PRODUTO: 0 },
       ),
-    [report.data],
+    [report.data?.itens],
   )
   const bestMonth = monthly.reduce(
     (best, item) => (item.value > best.value ? item : best),
@@ -227,8 +230,8 @@ export function Relatorios() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {report.data?.clientes.length ? (
-              report.data.clientes.slice(0, 5).map((client, index) => (
+            {reportClients.length ? (
+              reportClients.slice(0, 5).map((client, index) => (
                 <div className="flex items-center gap-4 border-b py-4 last:border-0" key={client.clienteId}>
                   <span className="grid size-10 place-items-center rounded-full bg-primary/15 text-base font-bold text-primary">
                     {index + 1}
@@ -247,7 +250,7 @@ export function Relatorios() {
             <CardTitle className="text-xl">Últimas 10 vendas</CardTitle>
           </CardHeader>
           <CardContent>
-            {(sales.data?.content ?? []).map((sale) => (
+            {recentSales.map((sale) => (
               <div className="flex items-center gap-3 border-b py-3 last:border-0" key={sale.id}>
                 <span className="w-16 shrink-0 text-sm text-muted-foreground">
                   #{sale.id.slice(0, 6)}
@@ -266,7 +269,7 @@ export function Relatorios() {
                 <strong className="text-base">{formatCurrency(Number(sale.valorTotal))}</strong>
               </div>
             ))}
-            {!sales.data?.content.length ? <EmptyState text="Sem vendas neste mês." /> : null}
+            {!recentSales.length ? <EmptyState text="Sem vendas neste mês." /> : null}
           </CardContent>
         </Card>
       </div>
@@ -276,8 +279,8 @@ export function Relatorios() {
             <CardTitle className="text-xl">Mais vendidos no mês</CardTitle>
           </CardHeader>
           <CardContent>
-            {report.data?.itens.length ? (
-              report.data.itens.slice(0, 5).map((item) => (
+            {reportItems.length ? (
+              reportItems.slice(0, 5).map((item) => (
                 <div className="flex justify-between border-b py-3 text-lg last:border-0" key={item.itemId}>
                   <span>{item.nome}</span>
                   <strong>{item.quantidade} un.</strong>
