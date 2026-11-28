@@ -14,6 +14,12 @@ import java.util.UUID;
 public interface ItemRepository extends JpaRepository<Item, UUID>, JpaSpecificationExecutor<Item> {
     List<Item> findByTipoAndAtivo(TipoItem tipo, boolean ativo);
 
+    List<Item> findByTipoAndAtivoAndEstoqueLessThanEqualOrderByEstoqueAscNomeAsc(
+            TipoItem tipo,
+            boolean ativo,
+            Integer estoque
+    );
+
     Optional<Item> findByNomeIgnoreCase(String nome);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

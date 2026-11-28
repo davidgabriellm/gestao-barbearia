@@ -12,6 +12,9 @@ export const useInactiveItem = () => {
 
   return useMutation({
     mutationFn: inactiveItem,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['itens'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['itens'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 }

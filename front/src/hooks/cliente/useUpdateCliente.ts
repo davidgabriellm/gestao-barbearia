@@ -20,6 +20,7 @@ export const useUpdateCliente = () => {
     mutationFn: updateCliente,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })
 }

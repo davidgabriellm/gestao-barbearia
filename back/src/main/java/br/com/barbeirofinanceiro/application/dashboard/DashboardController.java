@@ -24,4 +24,9 @@ public class DashboardController {
     ) {
         return service.buscar(dataInicial, dataFinal);
     }
+
+    @GetMapping("/visao-geral")
+    public DashboardVisaoGeralResponse buscarVisaoGeral() {
+        return service.buscarVisaoGeral();
+    }
 }

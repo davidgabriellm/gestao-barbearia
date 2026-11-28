@@ -14,6 +14,9 @@ export const useCreateProduto = () => {
 
   return useMutation({
     mutationFn: createProduto,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['itens'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['itens'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 }

@@ -16,6 +16,7 @@ export const useCreateCliente = () => {
     mutationFn: createCliente,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })
 }

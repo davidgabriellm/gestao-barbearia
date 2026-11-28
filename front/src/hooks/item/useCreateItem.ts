@@ -12,6 +12,9 @@ export const useCreateItem = () => {
 
   return useMutation({
     mutationFn: createItem,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['itens'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['itens'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 }

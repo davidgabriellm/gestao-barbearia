@@ -14,6 +14,7 @@ export const useInactiveCliente = () => {
     mutationFn: deactivateCliente,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })
 }

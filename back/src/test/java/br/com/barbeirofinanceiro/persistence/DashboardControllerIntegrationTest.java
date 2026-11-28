@@ -7,6 +7,8 @@ import br.com.barbeirofinanceiro.domain.caixa.StatusCaixa;
 import br.com.barbeirofinanceiro.domain.categoria.Categoria;
 import br.com.barbeirofinanceiro.domain.categoria.CategoriaRepository;
 import br.com.barbeirofinanceiro.domain.categoria.TipoCategoria;
+import br.com.barbeirofinanceiro.domain.cliente.Cliente;
+import br.com.barbeirofinanceiro.domain.cliente.ClienteRepository;
 import br.com.barbeirofinanceiro.domain.item.Item;
 import br.com.barbeirofinanceiro.domain.item.ItemRepository;
 import br.com.barbeirofinanceiro.domain.item.TipoItem;
@@ -53,6 +55,7 @@ class DashboardControllerIntegrationTest extends PostgresPersistenceTest {
     @Autowired private JwtService jwtService;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private UsuarioRepository usuarioRepository;
+    @Autowired private ClienteRepository clienteRepository;
     @Autowired private CaixaRepository caixaRepository;
     @Autowired private CategoriaRepository categoriaRepository;
     @Autowired private ItemRepository itemRepository;
@@ -91,6 +94,7 @@ class DashboardControllerIntegrationTest extends PostgresPersistenceTest {
         itemVendaRepository.deleteAll();
         movimentacaoRepository.deleteAll();
         vendaRepository.deleteAll();
+        clienteRepository.deleteAll();
         caixaRepository.deleteAll();
         itemRepository.deleteAll();
         categoriaRepository.deleteAll();
@@ -197,6 +201,43 @@ class DashboardControllerIntegrationTest extends PostgresPersistenceTest {
     }
 
     @Test
+    void deveRetornarDadosDinamicosDaVisaoGeral() throws Exception {
+        LocalDate hoje = LocalDate.now();
+        Cliente cliente = cliente("Cliente da visão geral", true);
+        cliente("Cliente inativo da visão geral", false);
+        Item produtoComEstoqueBaixo = produto("Pomada baixa", 5, true);
+        produto("Shampoo zerado", 0, true);
+        produto("Produto normal", 6, true);
+        produto("Produto inativo", 1, false);
+
+        Venda vendaAtual = venda(
+                caixaFechado,
+                hoje,
+                BigDecimal.valueOf(55),
+                StatusVenda.FINALIZADA
+        );
+        vendaAtual.setCliente(cliente);
+        vendaAtual = vendaRepository.saveAndFlush(vendaAtual);
+        itemVenda(vendaAtual, produtoComEstoqueBaixo, 1, 55);
+        venda(caixaFechado, hoje, BigDecimal.valueOf(99), StatusVenda.CANCELADA);
+
+        mockMvc.perform(get("/api/v1/dashboard/visao-geral").header("Authorization", bearer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.faturamentoHoje").value(55))
+                .andExpect(jsonPath("$.vendasHoje").value(1))
+                .andExpect(jsonPath("$.faturamentoMes").value(55))
+                .andExpect(jsonPath("$.totalClientes").value(2))
+                .andExpect(jsonPath("$.vendasUltimosSeteDias.length()").value(7))
+                .andExpect(jsonPath("$.vendasUltimosSeteDias[6].data").value(hoje.toString()))
+                .andExpect(jsonPath("$.vendasUltimosSeteDias[6].faturamento").value(55))
+                .andExpect(jsonPath("$.estoqueBaixo.length()").value(2))
+                .andExpect(jsonPath("$.estoqueBaixo[1].nome").value("Pomada baixa"))
+                .andExpect(jsonPath("$.vendasRecentes.length()").value(1))
+                .andExpect(jsonPath("$.vendasRecentes[0].cliente").value("Cliente da visão geral"))
+                .andExpect(jsonPath("$.vendasRecentes[0].itens[0].nome").value("Pomada baixa"));
+    }
+
+    @Test
     void deveRejeitarPeriodoIncompletoOuInvalido() throws Exception {
         mockMvc.perform(get("/api/v1/dashboard").param("dataInicial", "2026-08-10").header("Authorization", bearer()))
                 .andExpect(status().isBadRequest());
@@ -258,6 +299,23 @@ class DashboardControllerIntegrationTest extends PostgresPersistenceTest {
         item.setPreco(preco);
         item.setEstoque(null);
         return itemRepository.saveAndFlush(item);
+    }
+
+    private Item produto(String nome, int estoque, boolean ativo) {
+        Item item = new Item();
+        item.setNome(nome);
+        item.setTipo(TipoItem.PRODUTO);
+        item.setPreco(BigDecimal.TEN);
+        item.setEstoque(estoque);
+        item.setAtivo(ativo);
+        return itemRepository.saveAndFlush(item);
+    }
+
+    private Cliente cliente(String nome, boolean ativo) {
+        Cliente cliente = new Cliente();
+        cliente.setNome(nome);
+        cliente.setAtivo(ativo);
+        return clienteRepository.saveAndFlush(cliente);
     }
 
     private Venda venda(Caixa caixa, LocalDate data, BigDecimal valor, StatusVenda status) {

@@ -9,6 +9,9 @@ export const useDeleteItem = () => {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: deleteItem,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['itens'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['itens'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 }

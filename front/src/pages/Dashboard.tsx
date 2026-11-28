@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import {
   Bar,
   BarChart,
@@ -9,12 +9,13 @@ import {
   YAxis,
 } from 'recharts'
 import {
-  FiActivity,
+  FiAlertTriangle,
+  FiArrowRight,
+  FiBox,
+  FiCreditCard,
   FiDollarSign,
-  FiMinusCircle,
-  FiPlus,
-  FiRefreshCw,
   FiShoppingBag,
+  FiUsers,
 } from 'react-icons/fi'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -25,9 +26,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { useDashboard } from '@/hooks/dashboard/useDashboard'
-
-type PeriodType = 'month' | 'year'
+import { useDashboardOverview } from '@/hooks/dashboard/useDashboardOverview'
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', {
@@ -35,404 +34,355 @@ const formatCurrency = (value: number) =>
     currency: 'BRL',
   }).format(value)
 
-const formatLocalDate = (value: string) => {
+const toLocalDate = (value: string) => {
   const [year, month, day] = value.split('-').map(Number)
-  return new Intl.DateTimeFormat('pt-BR').format(
-    new Date(year, month - 1, day),
-  )
+  return new Date(year, month - 1, day, 12)
 }
 
-const currentMonth = () => {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-}
+const formatWeekday = (value: string) =>
+  toLocalDate(value)
+    .toLocaleDateString('pt-BR', { weekday: 'short' })
+    .replace('.', '')
 
-const resolvePeriod = (monthValue: string, type: PeriodType) => {
-  const [year, month] = monthValue.split('-').map(Number)
-  if (type === 'year') {
-    return { dataInicial: `${year}-01-01`, dataFinal: `${year}-12-31` }
-  }
-
-  const lastDay = new Date(year, month, 0).getDate()
-  return {
-    dataInicial: `${year}-${String(month).padStart(2, '0')}-01`,
-    dataFinal: `${year}-${String(month).padStart(2, '0')}-${lastDay}`,
-  }
-}
+const formatShortDate = (value: string) =>
+  toLocalDate(value)
+    .toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+    .replace('.', '')
 
 export function Dashboard() {
   const navigate = useNavigate()
-  const [periodType, setPeriodType] = useState<PeriodType>('month')
-  const [month, setMonth] = useState(currentMonth)
-  const period = useMemo(
-    () => resolvePeriod(month, periodType),
-    [month, periodType],
-  )
-  const { data, isLoading, isFetching, error, refetch } = useDashboard(
-    period.dataInicial,
-    period.dataFinal,
-  )
+  const { data, isLoading, error } = useDashboardOverview()
+  const today = new Date()
+    .toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+    })
+    .replace(/(^\w)/, (char) => char.toUpperCase())
 
-  const caixa = data?.caixaAtual
-  const hasOperations = Boolean(
-    data &&
-      (data.resumo.quantidadeVendas > 0 ||
-        data.resumo.despesas !== 0 ||
-        data.evolucaoFaturamento.length > 0 ||
-        data.itensMaisVendidos.length > 0),
-  )
   const chartData =
-    data?.evolucaoFaturamento.map((item) => ({
-      ...item,
-      label: formatLocalDate(item.data),
+    data?.vendasUltimosSeteDias.map((day) => ({
+      dia: formatWeekday(day.data),
+      faturamento: day.faturamento,
     })) ?? []
+  const caixaAberto = data?.caixaAtual?.status === 'ABERTO'
+
+  const faturamentoHoje = isLoading
+    ? 'Carregando...'
+    : error
+      ? '—'
+      : formatCurrency(data?.faturamentoHoje ?? 0)
+  const faturamentoMes = isLoading
+    ? 'Carregando...'
+    : error
+      ? '—'
+      : formatCurrency(data?.faturamentoMes ?? 0)
+  const caixaStatus = isLoading
+    ? 'Carregando...'
+    : error
+      ? 'Indisponível'
+      : caixaAberto
+        ? 'Aberto'
+        : 'Fechado'
+  const totalClientes = isLoading
+    ? 'Carregando...'
+    : error
+      ? '—'
+      : String(data?.totalClientes ?? 0)
 
   return (
     <>
-      <div className="mb-8 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
+      <div className="mb-8 flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <p className="text-base text-muted-foreground">
-            {new Date()
-              .toLocaleDateString('pt-BR', {
-                weekday: 'long',
-                day: '2-digit',
-                month: 'long',
-              })
-              .replace(/(^\w)/, (char) => char.toUpperCase())}
-          </p>
-          <h1 className="mt-2 font-heading text-4xl font-bold tracking-tight text-primary">
+          <h1 className="font-heading text-3xl font-bold tracking-tight sm:text-4xl">
             Visão geral
           </h1>
+          <p className="mt-2 text-sm capitalize text-muted-foreground">
+            {today}
+          </p>
         </div>
-        <div className="flex items-center gap-3 self-center sm:self-end">
+        <div className="flex items-center gap-3 self-end">
           <Button
             variant="outline"
+            className="rounded-xl"
             onClick={() => navigate('/caixa')}
-            className="h-12 rounded-xl px-6 text-lg whitespace-nowrap [&_svg:not([class*='size-'])]:size-6"
           >
-            <FiDollarSign /> Caixa
+            <FiCreditCard />
+            Abrir caixa
           </Button>
           <Button
+            className="rounded-xl"
             onClick={() => navigate('/pedidos')}
-            className="h-12 rounded-xl px-6 text-lg whitespace-nowrap [&_svg:not([class*='size-'])]:size-6"
           >
-            <FiPlus /> Novo pedido
+            <FiShoppingBag />
+            Novo pedido
           </Button>
         </div>
       </div>
 
-      <Card className="mb-5 rounded-2xl">
-        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-muted-foreground">
-              PERÍODO CONSULTADO
-            </p>
-            <p className="mt-1 text-lg font-semibold">
-              {data
-                ? `${formatLocalDate(data.periodo.dataInicial)} a ${formatLocalDate(data.periodo.dataFinal)}`
-                : `${formatLocalDate(period.dataInicial)} a ${formatLocalDate(period.dataFinal)}`}
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <label className="grid gap-1 text-sm font-medium text-muted-foreground">
-              Referência
-              <input
-                type="month"
-                value={month}
-                onChange={(event) => {
-                  if (event.target.value) setMonth(event.target.value)
-                }}
-                className="h-11 rounded-xl border bg-background px-4 text-base text-foreground"
-              />
-            </label>
-            <label className="grid gap-1 text-sm font-medium text-muted-foreground">
-              Intervalo
-              <select
-                value={periodType}
-                onChange={(event) =>
-                  setPeriodType(event.target.value as PeriodType)
-                }
-                className="h-11 rounded-xl border bg-background px-4 text-base text-foreground"
-              >
-                <option value="month">Mês selecionado</option>
-                <option value="year">Ano selecionado</option>
-              </select>
-            </label>
-          </div>
-        </CardContent>
-      </Card>
+      {error && (
+        <div
+          role="alert"
+          className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300"
+        >
+          Não foi possível carregar os dados da visão geral. Tente novamente
+          mais tarde.
+        </div>
+      )}
 
-      {error ? (
-        <Card className="rounded-2xl border-red-200">
-          <CardContent className="flex min-h-48 flex-col items-center justify-center gap-4 text-center">
-            <p className="text-lg text-red-600">
-              Não foi possível carregar o Dashboard para este período.
-            </p>
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          icon={<FiDollarSign />}
+          label="Faturamento hoje"
+          value={faturamentoHoje}
+          description={
+            isLoading
+              ? 'Carregando vendas...'
+              : error
+                ? 'Dados indisponíveis'
+                : `${data?.vendasHoje ?? 0} vendas`
+          }
+          highlight
+        />
+        <MetricCard
+          icon={<FiDollarSign />}
+          label="Faturamento do mês"
+          value={faturamentoMes}
+          description="No mês atual"
+        />
+        <button
+          type="button"
+          onClick={() => navigate('/caixa')}
+          className="text-left"
+        >
+          <MetricCard
+            icon={<FiCreditCard />}
+            label="Caixa"
+            value={caixaStatus}
+            description={
+              error
+                ? 'Dados indisponíveis'
+                : caixaAberto
+                  ? 'Pronto para vender'
+                  : 'Abra para vender'
+            }
+          />
+        </button>
+        <MetricCard
+          icon={<FiUsers />}
+          label="Clientes"
+          value={totalClientes}
+          description="Clientes cadastrados"
+        />
+      </div>
+
+      <div className="mb-5 grid gap-5 lg:grid-cols-[1.8fr_1fr]">
+        <Card className="min-w-0 rounded-2xl border-white/10 bg-[#181512]">
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle className="text-lg">Últimos 7 dias</CardTitle>
+              <CardDescription>Faturamento diário</CardDescription>
+            </div>
             <Button
-              variant="outline"
-              onClick={() => refetch()}
-              disabled={isFetching}
+              variant="ghost"
+              size="sm"
+              className="shrink-0 text-primary hover:text-primary"
+              onClick={() => navigate('/relatorios')}
             >
-              <FiRefreshCw />
-              {isFetching ? 'Tentando novamente...' : 'Tentar novamente'}
+              Ver relatórios <FiArrowRight />
             </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64 min-w-0">
+              {isLoading ? (
+                <DashboardMessage>Carregando vendas...</DashboardMessage>
+              ) : error ? (
+                <DashboardMessage>Não foi possível carregar o gráfico.</DashboardMessage>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+                  >
+                    <CartesianGrid
+                      vertical={false}
+                      stroke="rgba(255,255,255,0.08)"
+                    />
+                    <XAxis
+                      dataKey="dia"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#9a9187', fontSize: 12 }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      width={58}
+                      tick={{ fill: '#9a9187', fontSize: 11 }}
+                      tickFormatter={(value: number) =>
+                        new Intl.NumberFormat('pt-BR', {
+                          notation: 'compact',
+                          maximumFractionDigits: 1,
+                        }).format(value)
+                      }
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                      contentStyle={{
+                        background: '#211d18',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: 12,
+                        color: '#f5f0e8',
+                      }}
+                      formatter={(value) => [
+                        formatCurrency(Number(value)),
+                        'Faturamento',
+                      ]}
+                    />
+                    <Bar
+                      dataKey="faturamento"
+                      fill="#e9a844"
+                      radius={[5, 5, 0, 0]}
+                      maxBarSize={56}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
           </CardContent>
         </Card>
-      ) : (
-        <>
-          <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <Stat
-              icon={<FiDollarSign />}
-              label="Faturamento"
-              value={data ? formatCurrency(data.resumo.faturamento) : ''}
-              loading={isLoading}
-            />
-            <Stat
-              icon={<FiShoppingBag />}
-              label="Vendas finalizadas"
-              value={data ? String(data.resumo.quantidadeVendas) : ''}
-              loading={isLoading}
-            />
-            <Stat
-              icon={<FiMinusCircle />}
-              label="Despesas"
-              value={data ? formatCurrency(data.resumo.despesas) : ''}
-              loading={isLoading}
-            />
-            <Stat
-              icon={<FiActivity />}
-              label="Resultado"
-              value={data ? formatCurrency(data.resumo.resultado) : ''}
-              loading={isLoading}
-            />
-          </div>
 
-          {!isLoading && data && !hasOperations && (
-            <div className="mb-5 rounded-xl border bg-muted/20 p-4 text-center text-muted-foreground">
-              Não há vendas ou despesas registradas no período selecionado.
-            </div>
-          )}
-
-          <div className="mb-5 grid gap-5 lg:grid-cols-[1.55fr_1fr]">
-            <Card className="min-h-88 rounded-2xl">
-              <CardHeader>
-                <CardTitle className="text-xl">
-                  Evolução do faturamento
-                </CardTitle>
-                <CardDescription className="text-base">
-                  Somente vendas finalizadas no período
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <LoadingBlock className="h-72" />
-                ) : chartData.length === 0 ? (
-                  <EmptyState message="Nenhum faturamento diário disponível neste período." />
-                ) : (
-                  <div className="mt-5 h-72">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartData}>
-                        <CartesianGrid vertical={false} stroke="#302b27" />
-                        <XAxis
-                          dataKey="label"
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <YAxis axisLine={false} tickLine={false} />
-                        <Tooltip
-                          formatter={(value) =>
-                            formatCurrency(Number(value))
-                          }
-                        />
-                        <Bar
-                          dataKey="faturamento"
-                          name="Faturamento"
-                          fill="#efad43"
-                          radius={[5, 5, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="min-h-88 rounded-2xl">
-              <CardHeader>
-                <CardTitle className="text-xl">Caixa atual</CardTitle>
-                <CardDescription className="text-base">
-                  Situação financeira do caixa aberto
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <LoadingBlock className="h-64" />
-                ) : caixa ? (
-                  <>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3.5 py-2 text-base text-emerald-700">
-                      <i className="size-1.5 rounded-full bg-emerald-500" />
-                      Aberto
-                    </span>
-                    <div className="mt-6 font-heading text-5xl font-bold">
-                      {formatCurrency(caixa.valorEsperado)}
-                    </div>
-                    <p className="my-1 mb-8 text-lg text-muted-foreground">
-                      Valor esperado
-                    </p>
-                    <div className="grid gap-5 border-y py-5 text-lg">
-                      <div>
-                        <span>Entradas em dinheiro</span>
-                        <b className="text-emerald-600">
-                          + {formatCurrency(caixa.entradasDinheiro)}
-                        </b>
-                      </div>
-                      <div>
-                        <span>Saídas em dinheiro</span>
-                        <b className="text-red-500">
-                          - {formatCurrency(caixa.saidasDinheiro)}
-                        </b>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <EmptyState message="Não há caixa aberto no momento." />
-                )}
-                <Button
-                  variant="outline"
-                  className="mt-7 h-12 w-full rounded-xl px-4 text-lg"
-                  onClick={() => navigate('/caixa')}
+        <Card className="rounded-2xl border-white/10 bg-[#181512]">
+          <CardHeader>
+            <CardTitle className="text-lg">Estoque baixo</CardTitle>
+            <CardDescription>Produtos com até 5 unidades</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            {isLoading ? (
+              <DashboardMessage>Carregando estoque...</DashboardMessage>
+            ) : error ? (
+              <DashboardMessage>Não foi possível carregar o estoque.</DashboardMessage>
+            ) : data?.estoqueBaixo.length ? (
+              data.estoqueBaixo.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 rounded-xl bg-red-500/10 px-3 py-3 text-sm"
                 >
-                  {caixa ? 'Ver caixa' : 'Abrir caixa'}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+                  <FiAlertTriangle className="shrink-0 text-red-400" />
+                  <span className="min-w-0 flex-1 truncate">{item.nome}</span>
+                  <strong className="text-red-300">{item.estoque}</strong>
+                </div>
+              ))
+            ) : (
+              <DashboardMessage>
+                <FiBox className="mr-2 inline" />
+                Nenhum produto com estoque baixo.
+              </DashboardMessage>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-          <div className="grid gap-5 lg:grid-cols-2">
-            <Card className="rounded-2xl shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-xl">Itens mais vendidos</CardTitle>
-                <CardDescription className="text-base">
-                  Ranking por faturamento no período
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <LoadingBlock className="h-48" />
-                ) : data?.itensMaisVendidos.length ? (
-                  <div className="grid">
-                    {data.itensMaisVendidos.map((item) => (
-                      <div
-                        className="flex items-center gap-5 border-b py-4 last:border-0"
-                        key={item.itemId}
-                      >
-                        <div className="grid size-10 place-items-center rounded-full bg-emerald-50 font-bold text-primary">
-                          {item.quantidade}
-                        </div>
-                        <div className="grid flex-1 gap-0.5">
-                          <strong className="text-lg">{item.nome}</strong>
-                          <span className="text-sm text-muted-foreground">
-                            {item.tipo === 'SERVICO' ? 'Serviço' : 'Produto'}
-                          </span>
-                        </div>
-                        <b className="text-lg">
-                          {formatCurrency(item.faturamento)}
-                        </b>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState message="Nenhum item vendido neste período." />
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-2xl shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-xl">
-                  Formas de pagamento
-                </CardTitle>
-                <CardDescription className="text-base">
-                  Valores recebidos em vendas finalizadas
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <LoadingBlock className="h-48" />
-                ) : data ? (
-                  <div className="grid gap-4 text-lg">
-                    <PaymentRow
-                      label="Dinheiro"
-                      value={data.pagamentos.dinheiro}
-                    />
-                    <PaymentRow label="Pix" value={data.pagamentos.pix} />
-                    <PaymentRow
-                      label="Cartão de crédito"
-                      value={data.pagamentos.cartaoCredito}
-                    />
-                    <PaymentRow
-                      label="Cartão de débito"
-                      value={data.pagamentos.cartaoDebito}
-                    />
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
+      <Card className="rounded-2xl border-white/10 bg-[#181512]">
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <div>
+            <CardTitle className="text-lg">Vendas recentes</CardTitle>
+            <CardDescription>Últimas vendas finalizadas</CardDescription>
           </div>
-        </>
-      )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0 text-primary hover:text-primary"
+            onClick={() => navigate('/pedidos')}
+          >
+            Ver todos <FiArrowRight />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <DashboardMessage>Carregando vendas...</DashboardMessage>
+          ) : error ? (
+            <DashboardMessage>Não foi possível carregar as vendas.</DashboardMessage>
+          ) : data?.vendasRecentes.length ? (
+            <div className="divide-y divide-white/10">
+              {data.vendasRecentes.map((venda) => (
+                <div
+                  key={venda.id}
+                  className="grid gap-2 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                >
+                  <div className="min-w-0">
+                    <strong className="block truncate text-sm">
+                      {venda.cliente}
+                    </strong>
+                    <span className="mt-1 block truncate text-xs text-muted-foreground">
+                      {venda.itens
+                        .map((item) => `${item.quantidade}× ${item.nome}`)
+                        .join(', ')}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 sm:justify-end">
+                    <span className="text-xs text-muted-foreground">
+                      {formatShortDate(venda.dataVenda)}
+                    </span>
+                    <strong className="whitespace-nowrap text-sm text-primary">
+                      {formatCurrency(venda.valorTotal)}
+                    </strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <DashboardMessage>Nenhuma venda finalizada ainda.</DashboardMessage>
+          )}
+        </CardContent>
+      </Card>
     </>
   )
 }
 
-function Stat({
+function MetricCard({
   icon,
   label,
   value,
-  loading,
+  description,
+  highlight = false,
 }: {
-  icon: React.ReactNode
+  icon: ReactNode
   label: string
   value: string
-  loading: boolean
+  description: string
+  highlight?: boolean
 }) {
   return (
-    <Card className="stat-card min-h-40 gap-4 rounded-2xl p-6">
-      <div className="stat-top">
-        <div className="stat-icon size-12 text-xl">{icon}</div>
+    <Card
+      className={`h-full rounded-2xl bg-[#181512] p-5 ${
+        highlight
+          ? 'border-primary/40 shadow-[0_0_24px_rgba(233,168,68,0.08)]'
+          : 'border-white/10'
+      }`}
+    >
+      <div className="mb-4 flex items-center justify-between text-muted-foreground">
+        <span className="text-sm">{label}</span>
+        <span className="text-primary">{icon}</span>
       </div>
-      <p className="text-lg">{label}</p>
-      {loading ? (
-        <LoadingBlock className="h-9 w-32" />
-      ) : (
-        <strong className="text-3xl">{value}</strong>
-      )}
+      <strong
+        className={`block truncate text-2xl font-bold ${
+          highlight ? 'text-primary' : 'text-foreground'
+        }`}
+      >
+        {value}
+      </strong>
+      <span className="mt-1 block text-xs text-muted-foreground">
+        {description}
+      </span>
     </Card>
   )
 }
 
-function PaymentRow({ label, value }: { label: string; value: number }) {
+function DashboardMessage({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-center justify-between border-b pb-3 last:border-0">
-      <span className="text-muted-foreground">{label}</span>
-      <strong>{formatCurrency(value)}</strong>
-    </div>
-  )
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="grid min-h-40 place-items-center text-center text-base text-muted-foreground">
-      {message}
-    </div>
-  )
-}
-
-function LoadingBlock({ className }: { className: string }) {
-  return (
-    <div
-      aria-label="Carregando"
-      className={`animate-pulse rounded-xl bg-muted ${className}`}
-    />
+    <p className="flex min-h-14 items-center justify-center text-sm text-muted-foreground">
+      {children}
+    </p>
   )
 }

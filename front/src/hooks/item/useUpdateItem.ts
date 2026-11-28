@@ -17,6 +17,9 @@ export const useUpdateItem = () => {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: updateItem,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['itens'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['itens'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 }

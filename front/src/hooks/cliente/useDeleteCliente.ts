@@ -9,6 +9,9 @@ export const useDeleteCliente = () => {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: deleteCliente,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clientes'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clientes'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 }

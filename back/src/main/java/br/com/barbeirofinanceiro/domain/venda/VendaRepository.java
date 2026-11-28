@@ -26,6 +26,9 @@ public interface VendaRepository extends JpaRepository<Venda, UUID>, JpaSpecific
     @EntityGraph(attributePaths = {"cliente", "caixa"})
     Page<Venda> findAll(Specification<Venda> specification, Pageable pageable);
 
+    @EntityGraph(attributePaths = "cliente")
+    List<Venda> findFirst5ByStatusOrderByDataVendaDescCreatedAtDesc(StatusVenda status);
+
     @Query("""
         SELECT new br.com.barbeirofinanceiro.domain.venda.VendaResumoProjection(
             COALESCE(SUM(v.valorTotal), 0),
